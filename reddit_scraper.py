@@ -1,14 +1,15 @@
+import os
+from dotenv import load_dotenv
 import praw
 import pandas as pd
 from datetime import datetime
 import time
 import logging
-from textblob import TextBlob  # For basic sentiment analysis
-from transformers import pipeline  # For more advanced sentiment analysis
+from textblob import TextBlob
+from transformers import pipeline
 import re
 from collections import Counter
 import numpy as np
-import emoji
 from nltk.tokenize import word_tokenize
 import nltk
 
@@ -24,13 +25,55 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def load_environment():
+    """Load environment variables from .env file"""
+    env_path = '.env'
+    
+    # Debug: Check file existence and location
+    current_dir = os.getcwd()
+    logger.info(f"Current working directory: {current_dir}")
+    logger.info(f"Looking for .env file at: {os.path.join(current_dir, env_path)}")
+    
+    if not os.path.exists(env_path):
+        raise FileNotFoundError(
+            "'.env' file not found. Please create one with your Reddit API credentials."
+        )
+    
+    # Load the environment variables
+    load_dotenv(env_path)
+    
+    # Debug: Print loaded variables (be careful not to log actual secrets in production)
+    logger.info("Environment variables loaded. Available keys:")
+    for key in ['REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET', 'REDDIT_USER_AGENT']:
+        logger.info(f"- {key}: {'Found' if os.getenv(key) else 'Not found'}")
+
+# Define subreddit categories
+SUBREDDIT_CATEGORIES = {
+    'ai': ["ArtificialIntelligence", "ChatGPT", "MachineLearning"],
+    'music': ["hiphopheads", "musicproduction", "FL_Studio"],
+    'web3': ["web3", "cryptocurrency", "blockchain"]
+}
+
 def initialize_reddit():
-    """Initialize and return Reddit instance with provided credentials."""
+    """Initialize and return Reddit instance with credentials from environment variables"""
     try:
+        # Debug prints
+        client_id = os.getenv('REDDIT_CLIENT_ID')
+        client_secret = os.getenv('REDDIT_CLIENT_SECRET')
+        user_agent = os.getenv('REDDIT_USER_AGENT')
+        
+        logger.info(f"Checking credentials:")
+        logger.info(f"Client ID exists: {bool(client_id)}")
+        logger.info(f"Client Secret exists: {bool(client_secret)}")
+        logger.info(f"User Agent exists: {bool(user_agent)}")
+        
+        if not all([client_id, client_secret, user_agent]):
+            raise ValueError("Missing one or more required environment variables")
+            
         reddit = praw.Reddit(
-            client_id="KA872pVkyZiv-pMWiULNsw",
-            client_secret="8D3IzS2P_XZ5Jf5FuGBrGdFZ9vxsfg",
-            user_agent="web3_scraper/1.0 (by /u/web3_scraper)"
+            client_id=client_id,
+            client_secret=client_secret,
+            user_agent=user_agent
         )
         return reddit
     except Exception as e:
@@ -39,11 +82,15 @@ def initialize_reddit():
 
 def extract_hashtags(text):
     """Extract hashtags from text."""
+    if not isinstance(text, str):
+        return []
     hashtag_pattern = r'#\w+'
     return re.findall(hashtag_pattern, text)
 
 def clean_text(text):
     """Clean and preprocess text."""
+    if not isinstance(text, str):
+        return ""
     # Convert to lowercase
     text = text.lower()
     # Remove URLs
@@ -79,6 +126,13 @@ def get_user_metadata(author):
 
 def perform_sentiment_analysis(text):
     """Perform sentiment analysis using both TextBlob and Transformers."""
+    if not isinstance(text, str) or not text.strip():
+        return {
+            'textblob_sentiment': 0.0,
+            'transformer_sentiment': 'NEUTRAL',
+            'transformer_score': 0.5
+        }
+
     try:
         # TextBlob sentiment analysis
         blob = TextBlob(text)
@@ -96,16 +150,17 @@ def perform_sentiment_analysis(text):
     except Exception as e:
         logger.warning(f"Error in sentiment analysis: {str(e)}")
         return {
-            'textblob_sentiment': None,
-            'transformer_sentiment': None,
-            'transformer_score': None
+            'textblob_sentiment': 0.0,
+            'transformer_sentiment': 'NEUTRAL',
+            'transformer_score': 0.5
         }
 
-def collect_posts(reddit, subreddit_name, post_limit=100):
+def collect_posts(reddit, subreddit_name, category, post_limit=100):
     """Collect posts with enhanced data collection and sentiment analysis."""
     posts_data = []
     try:
         subreddit = reddit.subreddit(subreddit_name)
+        logger.info(f"Collecting posts from r/{subreddit_name} (Category: {category})")
 
         for post in subreddit.new(limit=post_limit):
             time.sleep(0.5)  # Respect rate limits
@@ -142,25 +197,31 @@ def collect_posts(reddit, subreddit_name, post_limit=100):
                     'author_verified': user_metadata['is_verified'],
                     'textblob_sentiment': sentiment_results['textblob_sentiment'],
                     'transformer_sentiment': sentiment_results['transformer_sentiment'],
-                    'transformer_score': sentiment_results['transformer_score']
+                    'transformer_score': sentiment_results['transformer_score'],
+                    'category': category,
+                    'subreddit': subreddit_name
                 }
 
                 posts_data.append(post_data)
-                logger.info(f"Collected and analyzed post: {post.title[:50]}...")
+                logger.info(f"Collected post from r/{subreddit_name}: {post.title[:50]}...")
 
             except Exception as e:
                 logger.warning(f"Error processing post: {str(e)}")
                 continue
 
     except Exception as e:
-        logger.error(f"Error accessing subreddit: {str(e)}")
-        raise
+        logger.error(f"Error accessing subreddit {subreddit_name}: {str(e)}")
+        return posts_data  # Return any collected data instead of raising
 
     return posts_data
 
-def save_to_csv(posts_data, filename):
+def save_to_csv(posts_data, category):
     """Save collected posts to CSV file with enhanced error handling."""
     try:
+        if not posts_data:
+            logger.warning(f"No data to save for category: {category}")
+            return
+
         df = pd.DataFrame(posts_data)
 
         # Convert timestamp to datetime if not already
@@ -169,12 +230,17 @@ def save_to_csv(posts_data, filename):
         # Sort by timestamp
         df = df.sort_values('timestamp', ascending=False)
 
+        # Create output directory if it doesn't exist
+        os.makedirs('data/raw', exist_ok=True)
+
         # Save to CSV
+        filename = f"data/raw/reddit_analysis_{category}.csv"
         df.to_csv(filename, index=False)
         logger.info(f"Successfully saved {len(posts_data)} posts to {filename}")
 
         # Generate and log basic statistics
-        logger.info(f"Dataset Statistics:")
+        logger.info(f"Dataset Statistics for {category}:")
+        logger.info(f"Total posts: {len(df)}")
         logger.info(f"Average sentiment (TextBlob): {df['textblob_sentiment'].mean():.2f}")
         logger.info(f"Most common sentiment (Transformer): {df['transformer_sentiment'].mode()[0]}")
         logger.info(f"Average engagement (score): {df['score'].mean():.2f}")
@@ -185,33 +251,29 @@ def save_to_csv(posts_data, filename):
 
 def main():
     try:
+        # Load environment variables
+        load_environment()
+
         # Initialize Reddit instance
         reddit = initialize_reddit()
 
-        # Define subreddits to analyze
-        subreddits = ["ArtificialIntelligence", "ChatGPT", "MachineLearning"]
-        all_posts_data = []
+        # Process each category
+        for category, subreddits in SUBREDDIT_CATEGORIES.items():
+            category_posts = []
+            
+            for subreddit in subreddits:
+                try:
+                    posts_data = collect_posts(reddit, subreddit, category)
+                    category_posts.extend(posts_data)
+                except Exception as e:
+                    logger.error(f"Error collecting posts from r/{subreddit}: {str(e)}")
+                    continue
 
-        for subreddit in subreddits:
-            try:
-                logger.info(f"Starting to collect posts from r/{subreddit}...")
-                posts_data = collect_posts(reddit, subreddit)
-                all_posts_data.extend(posts_data)
-            except Exception as e:
-                logger.error(f"Error collecting posts from r/{subreddit}: {str(e)}")
-                continue  # Continue with next subreddit even if this one fails
-
-        if all_posts_data:  # Only save if we have data
-            # Save to CSV
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"reddit_analysis_{timestamp}.csv"
-            save_to_csv(all_posts_data, filename)
-        else:
-            logger.error("No data was collected from any subreddit")
-
-    except Exception as e:
-        logger.error(f"Script execution failed: {str(e)}")
-        raise
+            # Save category data
+            if category_posts:
+                save_to_csv(category_posts, category)
+            else:
+                logger.error(f"No data collected for category: {category}")
 
     except Exception as e:
         logger.error(f"Script execution failed: {str(e)}")
