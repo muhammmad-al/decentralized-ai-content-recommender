@@ -40,3 +40,14 @@ Single node performance:
 - Training Accuracy: 92.70%
 - Validation Accuracy: 87.89%
 - Test Accuracy: 87.25%
+
+Category-specific F1-scores:
+- AI: 0.85
+- Music: 0.88
+- Web3: 0.89
+
+## Next Steps
+- [ ] Implement federated learning across multiple nodes
+- [ ] Add content recommendation system based on classification
+- [ ] Enhance model with user interaction data
+- [ ] Scale to more categories and subreddits
