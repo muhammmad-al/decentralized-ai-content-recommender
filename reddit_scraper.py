@@ -4,7 +4,6 @@ import praw
 import pandas as pd
 from datetime import datetime
 import asyncio
-import aiohttp
 import logging
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
@@ -17,21 +16,40 @@ logger = logging.getLogger(__name__)
 
 SUBREDDIT_CATEGORIES = {
     'ai': [
-        "ChatGPT",  
-        "artificial", 
-        "MachineLearning"
+        "ChatGPT",
+        "artificial",
+        "MachineLearning",
+        "AIdev",
+        "deeplearning",
+        "OpenAI",
+        "reinforcementlearning",
+        "GPT3",
+        "ArtificialInteligence",
+        "MLQuestions"
     ],
     'music': [
-        "hiphopheads",  
+        "hiphopheads",
         "WeAreTheMusicMakers",
-        "edmproduction"
+        "edmproduction",
+        "Music",
+        "musicproduction",
+        "IndieMusicFeedback",
+        "musictheory",
+        "makinghiphop",
+        "FL_Studio",
+        "ableton"
     ],
     'web3': [
-        "cryptocurrency",  
+        "cryptocurrency",
         "ethereum",
-        "CryptoTechnology",  
-        "defi",             
-        "NFT"               
+        "CryptoTechnology",
+        "defi",
+        "NFT",
+        "web3",
+        "solana",
+        "bitcoindev",
+        "ethdev",
+        "BlockchainStartups"
     ]
 }
 
@@ -60,30 +78,53 @@ def process_post(post):
             'upvote_ratio': post.upvote_ratio,
             'timestamp': datetime.fromtimestamp(post.created_utc),
             'category': post.category,
-            'subreddit': post.subreddit.display_name
+            'subreddit': post.subreddit.display_name,
+            'author': str(post.author) if post.author else '[deleted]',
+            'is_original_content': post.is_original_content if hasattr(post, 'is_original_content') else False
         }
     except Exception:
         return None
 
-def collect_subreddit_posts(reddit, subreddit_name, category, post_limit=400):
-    """Collect posts from a single subreddit"""
+def collect_subreddit_posts(reddit, subreddit_name, category, post_limit=1000):
+    """Collect posts from a single subreddit using multiple sorting methods"""
     try:
         subreddit = reddit.subreddit(subreddit_name)
-        posts = []
+        posts = set()  # Use set to avoid duplicates
         
-        # Collect only from 'hot' for speed
-        for post in subreddit.hot(limit=post_limit):
-            post.category = category  # Add category to post object
-            posts.append(post)
-            
-        return posts
+        # Collect from multiple sorting methods to get more diverse posts
+        sorting_methods = {
+            'hot': 400,
+            'top': 300,
+            'new': 200,
+            'rising': 100
+        }
+        
+        for sort_method, limit in sorting_methods.items():
+            try:
+                if sort_method == 'top':
+                    # Get posts from different time periods
+                    for time_filter in ['month', 'year', 'all']:
+                        method = getattr(subreddit, sort_method)
+                        for post in method(limit=limit, time_filter=time_filter):
+                            post.category = category
+                            posts.add(post)
+                else:
+                    method = getattr(subreddit, sort_method)
+                    for post in method(limit=limit):
+                        post.category = category
+                        posts.add(post)
+            except Exception as e:
+                logger.warning(f"Error collecting {sort_method} posts from {subreddit_name}: {str(e)}")
+                continue
+                
+        return list(posts)
     except Exception as e:
         logger.error(f"Error collecting from {subreddit_name}: {str(e)}")
         return []
 
 def parallel_collect_posts(reddit, category, subreddits):
     """Collect posts in parallel from multiple subreddits"""
-    with ThreadPoolExecutor(max_workers=len(subreddits)) as executor:
+    with ThreadPoolExecutor(max_workers=min(len(subreddits), 10)) as executor:
         # Create partial function with fixed arguments
         collect_func = partial(collect_subreddit_posts, reddit, category=category)
         
@@ -112,29 +153,34 @@ def process_posts_parallel(posts):
     return [p for p in processed if p is not None]
 
 def save_to_csv(posts_data, category):
-    """Quick save to CSV with minimal processing"""
+    """Save to CSV with enhanced processing"""
     if not posts_data:
         return
         
     df = pd.DataFrame(posts_data)
     
-    # Basic cleaning
+    # Enhanced cleaning
     df = df.dropna(subset=['cleaned_text'])
     df = df.drop_duplicates(subset=['title', 'cleaned_text'])
     
-    # Sort by engagement
-    df['engagement'] = df['score'] + df['num_comments']
-    df = df.sort_values('engagement', ascending=False)
+    # Calculate engagement score
+    df['engagement'] = (
+        df['score'] * 0.6 +  # Weight score more heavily
+        df['num_comments'] * 0.4 +  # Comments contribute less
+        (df['upvote_ratio'] * 10)  # Small boost for highly upvoted content
+    )
     
-    # Keep top posts
-    df = df.head(1000)
+    # Sort by engagement and keep top 5000 posts
+    df = df.sort_values('engagement', ascending=False)
+    df = df.head(5000)
     
     # Save
     os.makedirs('data/raw', exist_ok=True)
-    filename = f"data/raw/reddit_analysis_{category}.csv"
+    filename = f"data/raw/reddit_analysis_{category}_{len(df)}_posts.csv"
     df.to_csv(filename, index=False)
     
     logger.info(f"Saved {len(df)} posts for {category}")
+    return len(df)
 
 async def main():
     # Load environment variables
@@ -143,6 +189,7 @@ async def main():
     # Initialize Reddit
     reddit = initialize_reddit()
     
+    total_posts = 0
     for category, subreddits in SUBREDDIT_CATEGORIES.items():
         logger.info(f"\nCollecting {category} posts...")
         
@@ -155,7 +202,10 @@ async def main():
         logger.info(f"Processed {len(processed_posts)} posts for {category}")
         
         # Save results
-        save_to_csv(processed_posts, category)
+        posts_saved = save_to_csv(processed_posts, category)
+        total_posts += posts_saved
+        
+    logger.info(f"\nScript completed. Total posts collected: {total_posts}")
 
 if __name__ == "__main__":
     asyncio.run(main())

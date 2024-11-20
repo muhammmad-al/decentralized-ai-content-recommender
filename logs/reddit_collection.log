@@ -1,0 +1,19 @@
+2024-11-20 17:17:37,752 - INFO - 
+Collecting ai posts...
+2024-11-20 17:17:43,533 - WARNING - Retrying due to 500 status: GET https://oauth.reddit.com/r/artificial/hot
+2024-11-20 17:17:52,616 - WARNING - Retrying due to 500 status: GET https://oauth.reddit.com/r/artificial/new
+2024-11-20 17:18:32,053 - WARNING - Retrying due to 500 status: GET https://oauth.reddit.com/r/MachineLearning/new
+2024-11-20 17:18:46,322 - WARNING - Retrying due to 500 status: GET https://oauth.reddit.com/r/deeplearning/top
+2024-11-20 17:18:46,456 - WARNING - Retrying due to 500 status: GET https://oauth.reddit.com/r/artificial/top
+2024-11-20 17:18:55,764 - WARNING - Retrying due to 500 status: GET https://oauth.reddit.com/r/artificial/new
+2024-11-20 17:18:58,933 - WARNING - Retrying due to 500 status: GET https://oauth.reddit.com/r/artificial/new
+2024-11-20 17:19:08,408 - INFO - Collected 4764 posts from r/MachineLearning
+2024-11-20 17:19:08,409 - INFO - Collected 4764 posts from r/MachineLearning
+2024-11-20 17:19:10,916 - INFO - Collected 5015 posts from r/deeplearning
+2024-11-20 17:19:10,918 - INFO - Collected 5015 posts from r/deeplearning
+2024-11-20 17:19:21,996 - INFO - Collected 5585 posts from r/ChatGPT
+2024-11-20 17:19:22,001 - INFO - Collected 5585 posts from r/ChatGPT
+2024-11-20 17:19:24,258 - INFO - Collected 4771 posts from r/artificial
+2024-11-20 17:19:24,260 - INFO - Collected 4771 posts from r/artificial
+2024-11-20 17:19:55,552 - INFO - Collected 5433 posts from r/AIart
+2024-11-20 17:19:55,566 - INFO - Collected 5433 posts from r/AIart
