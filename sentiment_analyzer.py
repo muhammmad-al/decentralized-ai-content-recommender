@@ -100,7 +100,7 @@ def main():
     categories = ['ai', 'music', 'web3']
     
     for category in categories:
-        input_file = f'data/raw/reddit_analysis_{category}.csv'
+        input_file = f'data/raw/reddit_analysis_{category}_5000_posts.csv'
         
         if not os.path.exists(input_file):
             logger.warning(f"File not found: {input_file}")
