@@ -1,53 +1,38 @@
-# Decentralized AI Content Recommender
+# Privacy-Preserving User Interaction Prediction with Federated Learning
 
-A decentralized federated learning framework for Reddit content recommendation. This system uses multiple nodes to train on different content categories while maintaining data privacy and improving overall recommendation accuracy.
+A machine learning system that predicts whether users will interact with social media content while keeping user data private across regions. Built on Reddit data across AI, music, and web3 topics.
 
-## Project Progress
+## What This Project Does
 
-### 1. Data Collection
-- Successfully collected Reddit data from multiple subreddits across 3 categories:
-  - **AI**: r/ChatGPT, r/artificial, r/MachineLearning
-  - **Music**: r/hiphopheads, r/WeAreTheMusicMakers, r/edmproduction
-  - **Web3**: r/cryptocurrency, r/ethereum, r/CryptoTechnology, r/defi, r/NFT
+The system predicts if a user will engage with a post, comparing two approaches:
 
-- Collected features:
-  - Post titles and content
-  - Engagement metrics (scores, comments)
-  - Timestamps and metadata
+* Traditional: All user data in one place (95% accuracy)
+* Privacy-Preserving: Data stays in local regions (88% accuracy)
 
-### 2. Feature Engineering
-- Implemented text preprocessing and cleaning
-- Added sentiment analysis using:
-  - TextBlob for polarity analysis
-  - Transformer-based sentiment scoring
-  - Combined sentiment features
-- Created derived features:
-  - Log-transformed engagement metrics
-  - Text length and complexity metrics
-  - Sentiment magnitude and compounds
+The privacy-preserving version only loses 7% accuracy while keeping user data private - showing it's possible to protect user privacy without significantly impacting performance.
 
-### 3. Model Architecture
-Current implementation:
-- TF-IDF vectorization (300 features)
-- Neural network with:
-  - Input layer: 128 neurons, ReLU, L2 regularization
-  - Hidden layer: 64 neurons, ReLU, L2 regularization
-  - Batch normalization and dropout layers
-  - Output: 3-way classification (AI, Music, Web3)
+## How It Works
 
-### 4. Current Results
-Single node performance:
-- Training Accuracy: 92.70%
-- Validation Accuracy: 87.89%
-- Test Accuracy: 87.25%
+### Data Pipeline
+* Collects posts through Reddit's PRAW API with automated scraping
+* Processes 15,000+ posts across three topic areas
+* Runs sentiment analysis to understand post content
+* Transforms raw text and metrics into machine learning features
 
-Category-specific F1-scores:
-- AI: 0.85
-- Music: 0.88
-- Web3: 0.89
+### Model Architecture
+* Deep learning model built with TensorFlow
+* Natural language processing for text understanding
+* Distributed system keeping data private by region
+* Performance monitoring and evaluation system
 
-## Next Steps
-- [ ] Implement federated learning across multiple nodes
-- [ ] Add content recommendation system based on classification
-- [ ] Enhance model with user interaction data
-- [ ] Scale to more categories and subreddits
+### Key Performance Metrics
+
+| Metric | Centralized | Federated |
+|--------|-------------|-----------|
+| AUC | 0.9582 | 0.8841 |
+| Average Precision | 0.9304 | 0.8369 |
+| Interaction Correlation | 0.7114 | 0.6050 |
+
+The federated approach achieves strong performance with only a ~7% reduction in accuracy while providing significant privacy benefits.
+
+The project implements both centralized and federated approaches, demonstrating how privacy-preserving machine learning can work in real-world applications.
